@@ -1,38 +1,22 @@
-const axios = require('axios').default;
-const Qs = require('qs');
-const http = require('http');
-const express = require('express');
-const bodyParser = require('body-parser');
+const httpProxy = require('http-proxy');
 
-const PORT = 8011;
-const app = express();
+let proxy = httpProxy.createProxyServer({ target: 'http://www.ad.siemens.isoftstone.com', changeOrigin: true }).listen(8800);
 
-const CONFIG = {
-    baseURL: 'http://www.ad.siemens.isoftstone.com/LPAMSDEV/cnlp'
-};
-
-app.use(bodyParser.urlencoded({
-    // extended: false
-}));
-
-app.all('*', (req, res, next)=>{
-    axios.request({
-        url: CONFIG.baseURL + req.url,
-        method: req.method,
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'authorization': req.headers['authorization'] || req.headers['Authorization']
-        },
-        data: Qs.stringify(req.body),
-    }).then(data=>{
-        res.status(data.status).json((data.data));
+proxy.on('proxyRes', (proxyRes, req, res) => {
+    //设置允许跨域的域名，*代表允许任意域名跨域
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Access-Control-Allow-Methods", "*");
+    if (req.method.toLowerCase() == 'options') {
+        res.writeHead(200);
         res.end();
-    }).catch(err=>{
-        res.status(err.response.status).json(err.response.data);
-        res.end();
-    })
+    }
 });
 
-app.listen(PORT, ()=>{
-    console.log(`app is running on port ${PORT}`);
+proxy.on('error', function (err, req, res) {
+    res.writeHead(500, {
+        'content-type': 'text/plain'
+    });
+    console.log('代理服务器错误', err);
+    res.end('代理服务器错误');
 });
